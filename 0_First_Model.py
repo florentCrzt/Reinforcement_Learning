@@ -37,9 +37,11 @@ class CarAgent:
         self.exploration_rate = 1.0
         self.exploration_rate_decay = 0.95
         self.exploration_rate_min = 0.01
-        self.memory = deque(maxlen=2000)
+        self.batch_size = 64
+        self.memory = deque(maxlen=20000)
         self.gamma = 0.95
         self.model = self._build_model()
+        self.target_model = self._build_model()
 
 
     def _build_model(self):
@@ -64,19 +66,21 @@ class CarAgent:
         self.memory.append((state, action, reward, next_state, done))
 
 
-    def replay(self, batch_size):
-        minibatch = random.sample(self.memory, batch_size)
+    def replay(self):
+        minibatch = random.sample(self.memory, self.batch_size)
         for state, action, reward, next_state, done in minibatch :
             target = self.model.predict(state)
             if done :
                 target[0][action] = reward
             else :
-                Q_future = self.model.predict(next_state)[0]
+                Q_future = self.target_model.predict(next_state)[0]
                 target[0][action] = reward + self.gamma * np.amax(Q_future)
             self.model.fit(state, target, epochs=1, verbose=0)
         if self.exploration_rate > self.exploration_rate_min :
             self.exploration_rate *= self.exploration_rate_decay
 
+    def update_target_model(self):
+        self.target_model.set_weights(self.model.get_weights())
 
     def save(self, name):
         self.model.save(name)
@@ -92,13 +96,13 @@ def main():
     agent = CarAgent(state_size, action_size)
 
 
-    episodes = 25
+    episodes = 100
 
     goal_step = 200
-    score_requirement = -198129
+    score_requirement = -198
 
     done = False
-    batch_size = 128
+    batch_size = 64
 
     scores = 0
 
@@ -120,6 +124,7 @@ def main():
 
             if done :
                 reward += 10000
+                agent.update_target_model()
             else :
                 reward -= 10
 
@@ -131,7 +136,7 @@ def main():
             scores += reward
 
             if len(agent.memory) > batch_size :
-                agent.replay(batch_size)
+                agent.replay()
 
             print("episode : {}/{}, score: {}, exploration rate : {:.2}".format(ep, episodes, scores, agent.exploration_rate))
 

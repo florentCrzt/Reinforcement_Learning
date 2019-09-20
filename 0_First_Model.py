@@ -96,7 +96,7 @@ def main():
     agent = CarAgent(state_size, action_size)
 
 
-    episodes = 100
+    episodes = 60
 
     goal_step = 200
     score_requirement = -198
@@ -104,9 +104,9 @@ def main():
     done = False
     batch_size = 64
 
-    scores = 0
-
+    
     for ep in range(episodes):
+        scores = 0
         state = env.reset() # set the initial state
         state = np.reshape(state, [1, state_size])
 
@@ -125,6 +125,7 @@ def main():
             if done :
                 reward += 10000
                 agent.update_target_model()
+                break
             else :
                 reward -= 10
 

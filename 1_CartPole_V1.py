@@ -18,8 +18,8 @@ class CartPoleAgent:
         self.exploration_rate = 1.0
         self.exploration_rate_decay = 0.99
         self.exploration_rate_min = 0.01
-        self.batch_size = 64
-        self.memory = deque(maxlen=20000)
+        self.batch_size = 128
+        self.memory = deque(maxlen=1000000)
         self.gamma = 0.95
         self.model = self._build_model()
         self.target_model = self._build_model()
@@ -67,15 +67,15 @@ def training():
     action_size = env.action_space.n
     cart_pole = CartPoleAgent(state_size, action_size)
 
-    EPISODES = 1000
+    EPISODES = 10000
     GOAL_STEP = 250
-    BATCH_SIZE = 64
+    BATCH_SIZE = 128
 
     for ep in range(EPISODES):
         score = 0
         state = env.reset()
         state = np.reshape(state, [1, state_size])
-        for i in range(GOAL_STEP):
+        while True:
             env.render()
             action = cart_pole.act(state)
             next_state, reward, done, info = env.step(action)
@@ -90,11 +90,6 @@ def training():
 
             if len(cart_pole.memory) >= BATCH_SIZE :
                 cart_pole.fit()
-
-            # if abs(next_state[0][0]) >2.4 :
-            #     break
-            # if abs(next_state[0][2]) >0.209 :
-            #     break
 
             state = next_state
             score += reward

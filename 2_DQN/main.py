@@ -30,14 +30,41 @@ def main():
         print(observation_grayscale.shape)
         observation_grayscale_resize = np.resize(observation_grayscale, (110,84))
         print(observation_grayscale_resize.shape)
-
+        iteration = 0
+        score = 0
 
         while not terminal :
             env.render()
+
+            #Execute the action
             action = breakoutAgent.act(observation_grayscale_resize)
-            state, reward, terminal, info = env.step(action)
-            observation_grayscale = np.dot(observation[0][...,:3],[0.3,0.6,0.1])
-            observation_grayscale_resize = np.resize(observation_grayscale, (110,84))
+            next_state, reward, terminal, info = env.step(action)
+
+            #Preprocess the next Observation
+            next_state_grayscale = np.dot(next_state[0][...,:3],[0.3,0.6,0.1])
+            next_state_grayscale_resize = np.resize(next_state_grayscale, (110,84))
+
+            #Record the step
+            breakoutAgent.record(observation_grayscale_resize, action, reward, terminal, next_state_grayscale_resize)
+
+            #Fit the model
+            if len(breakoutAgent.game_memory) >= breakoutAgent.batch_size :
+                if breakoutAgent.total_iteration % breakoutAgent.train_interval == 0 :
+                    breakoutAgent.fit()
+
+            if breakoutAgent.total_iteration % breakoutAgent.update_interval == 0 :
+                breakoutAgent.update_target_model()
+
+            breakoutAgent.total_iteration += 1
+            iteration += 1
+            score += reward
+
+            if terminal :
+                break
+
+        print("Episode {}/{} | score : {} | iteration : {}".format(E, 100, score, iteration))
+
+
 
 
 if __name__ == "__main__":

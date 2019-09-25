@@ -20,7 +20,10 @@ class Agent:
         self.learning_rate = lr
         self.gamma = 0.95
         self.batch_size = batch_size
-        self.memory = deque(maxlen=20000)
+        self.train_interval = 4
+        self.update_interval = 1000
+        self.total_iteration = 0
+        self.game_memory = deque(maxlen=20000)
         self.model = self._build_model()
         self.target_model = self._build_model()
 
@@ -36,8 +39,8 @@ class Agent:
         return model
 
 
-    def record(self, state, action, reward, next_state):
-        self.memory.append((state, action, reward, next_state, terminal))
+    def record(self, state, action, reward, next_state, terminal):
+        self.game_memory.append((state, action, reward, next_state, terminal))
 
 
     def act(self, state):
@@ -48,15 +51,40 @@ class Agent:
 
 
     def fit(self):
-        minibatch = random.sample(self.memory, self.batch_size)
-        for state, action, reward, next_state, terminal in minibatch :
-            target = self.model.predict(state)
-            Q_future = self.targert_model.predict(next_state)[0]
-            terminal_i = 1 if terminal else 0
-            target[0][action] = reward + (1-terminal_i) * self.gamma * np.amax(Q_future)
-            self.model.fit(state, target, epochs=1, verbose=0)
-            if self.exploration_rate > self.exploration_rate_min :
-                self.exploration_rate *= self.exploration_rate_decay
+        # minibatch = random.sample(self.memory, self.batch_size)
+        # for state, action, reward, next_state, terminal in minibatch :
+        #     target = self.model.predict(state)
+        #     Q_future = self.targert_model.predict(next_state)[0]
+        #     terminal_i = 1 if terminal else 0
+        #     target[0][action] = reward + (1-terminal_i) * self.gamma * np.amax(Q_future)
+        #     self.model.fit(state, target, epochs=1, verbose=0)
+        # if self.exploration_rate > self.exploration_rate_min :
+        #     self.exploration_rate *= self.exploration_rate_decay
+        state_batch = []
+        action_batch = []
+        reward_batch = []
+        next_state_batch = []
+        terminal_batch = []
+        y_batch = []
+
+        minibatch = random.sample(self.game_memory, self.batch_size)
+        for data in minibatch:
+            state_batch.append(data[0])
+            action_batch.append(data[1])
+            reward_batch.append(data[2])
+            next_state_batch.append(data[3])
+            terminal_batch.append(data[4])
+
+        terminal_batch = np.array(terminal_batch) + 0
+        target_q_values_batch = self.target_model.predict([np.float32(np.array(next_state_batch)),np.zeros((1,self.action_size))])[0]
+        y_batch = reward_batch + (1 - terminal_batch) * self.gamma * np.max(target_q_values_batch, axis=-1)
+
+        a_one_hot = np.zeros((self.batch_size,self.action_size))
+        for idx,ac in enumerate(action_batch):
+            a_one_hot[idx,ac] = 1.0
+
+        loss = self.model.train_on_batch([np.florat32(np.array(state_batch)),a_one_hot],[np.zeros((1,self.action_size)),y_batch])
+
 
 
     def update_target_model(self):

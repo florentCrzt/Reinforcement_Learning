@@ -4,7 +4,7 @@ import numpy as np
 import random
 from collections import deque
 
-from keras.layers import Dense, Conv2D
+from keras.layers import Dense, Conv2D, Flatten
 from keras.engine.input_layer import Input
 from keras.models import Model
 from keras.optimizers import Adam
@@ -32,6 +32,7 @@ class Agent:
         input_layer = Input(shape=(self.img_height, self.img_width, 4))
         x = Conv2D(16, (8,8), strides=4, activation="relu")(input_layer)
         x = Conv2D(32, (4,4), strides=2, activation="relu")(x)
+        x = Flatten()(x)
         x = Dense(256,activation="relu")(x)
         x = Dense(self.action_size, activation="linear")(x)
         model = Model(inputs=input_layer, outputs=x)
@@ -66,7 +67,6 @@ class Agent:
         next_state_batch = []
         terminal_batch = []
         y_batch = []
-
         minibatch = random.sample(self.game_memory, self.batch_size)
         for data in minibatch:
             state_batch.append(data[0])
@@ -75,16 +75,26 @@ class Agent:
             next_state_batch.append(data[3])
             terminal_batch.append(data[4])
 
-        terminal_batch = np.array(terminal_batch) + 0
-        target_q_values_batch = self.target_model.predict([np.float32(np.array(next_state_batch)),np.zeros((1,self.action_size))])[0]
-        y_batch = reward_batch + (1 - terminal_batch) * self.gamma * np.max(target_q_values_batch, axis=-1)
+        predict_batch = []
+        train_state_batch = []
+        for i in range(1,32) :
+            predict_batch.append(next_state_batch[i])
+            train_state_batch.append(state_batch[i])
 
-        a_one_hot = np.zeros((self.batch_size,self.action_size))
-        for idx,ac in enumerate(action_batch):
-            a_one_hot[idx,ac] = 1.0
+            if i%4 == 0 :
+                predict_batch = np.transpose(predict_batch, (1,2,0))
+                train_state_batch = np.transpose(train_state_batch, (1,2,0))
 
-        loss = self.model.train_on_batch([np.florat32(np.array(state_batch)),a_one_hot],[np.zeros((1,self.action_size)),y_batch])
-
+                terminal_batch = np.array(terminal_batch) + 0
+                target_q_values_batch = self.target_model.predict(np.array(np.expand_dims(predict_batch, axis=0)))[0]
+                y_batch = reward_batch + (1 - terminal_batch) * self.gamma * np.max(target_q_values_batch, axis=-1)
+                self.model.train_on_batch(np.array(np.expand_dims(train_state_batch, axis=0)),[np.zeros((1,self.action_size))])
+                predict_batch = []
+                train_state_batch = []
+            else :
+                pass
+        if self.exploration_rate > self.exploration_rate_min :
+            self.exploration_rate *= self.exploration_rate_decay
 
 
     def update_target_model(self):

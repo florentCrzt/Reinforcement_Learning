@@ -23,29 +23,35 @@ def main():
 
         env.reset()
         observation = env.step(0)
-        print(observation[0].shape)
         terminal = False
         #Grayscale the observation
         observation_grayscale = np.dot(observation[0][...,:3],[0.3,0.6,0.1])
-        print(observation_grayscale.shape)
         observation_grayscale_resize = np.resize(observation_grayscale, (110,84))
-        print(observation_grayscale_resize.shape)
-        iteration = 0
+        iteration = 1
+        buffer = []
         score = 0
-
+        buffer.append(observation_grayscale_resize)
         while not terminal :
             env.render()
 
-            #Execute the action
-            action = breakoutAgent.act(observation_grayscale_resize)
-            next_state, reward, terminal, info = env.step(action)
+            #Execute .act every 4 steps, the remains do 0
+            if iteration%4 == 0 :
+                buffer = np.transpose(buffer, (1,2,0))
+                buffer = np.expand_dims(buffer, axis=0)
+                action = breakoutAgent.act(buffer)
+                next_state, reward, terminal, info = env.step(action)
+                buffer = []
+            else :
+                action = 2
+                next_state, reward, terminal, info = env.step(action)
 
             #Preprocess the next Observation
             next_state_grayscale = np.dot(next_state[0][...,:3],[0.3,0.6,0.1])
             next_state_grayscale_resize = np.resize(next_state_grayscale, (110,84))
+            buffer.append(next_state_grayscale_resize)
 
             #Record the step
-            breakoutAgent.record(observation_grayscale_resize, action, reward, terminal, next_state_grayscale_resize)
+            breakoutAgent.record(observation_grayscale_resize, action, reward, next_state_grayscale_resize,terminal)
 
             #Fit the model
             if len(breakoutAgent.game_memory) >= breakoutAgent.batch_size :
@@ -56,13 +62,13 @@ def main():
                 breakoutAgent.update_target_model()
 
             breakoutAgent.total_iteration += 1
-            iteration += 1
+            observation_grayscale_resize = next_state_grayscale_resize
             score += reward
-
+            iteration += 1
             if terminal :
                 break
 
-        print("Episode {}/{} | score : {} | iteration : {}".format(E, 100, score, iteration))
+        print("Episode {}/{} | score : {} | explo : {}".format(E, 100, score, breakoutAgent.exploration_rate))
 
 
 
